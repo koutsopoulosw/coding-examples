@@ -1,0 +1,538 @@
+service: wopr
+
+plugins:
+  - serverless-mocha-plugin
+  - serverless-offline
+  - serverless-plugin-split-stacks
+  - serverless-sqs-local
+  - serverless-offline-scheduler
+
+custom:
+  default_stage: local
+  aws_account_number: ${self:provider.environment.ACCOUNT}
+  dependsOn:
+    enabled: true 
+  serverless-offline:
+      port: 3300
+  #This has to be included because Serverless doesn't have conditionals in .yaml and because the PROD stack is currently named without the environment prefix.
+  #   We could have deleted the prod stack and remade it but we didn't want to delete the exiting Prod resources for what should be a relatively transient application.
+  #   The downside to this is that any future environments will have to be added and maintained here. IMO at least tho, it's easier to see and maintain here than in the
+  #   .config files.
+  stackNames:
+    local: local-wopr-serverless-stack
+    development: development-wopr-serverless-stack
+    sandbox: sandbox-wopr-serverless-stack
+    dev: dev-wopr-serverless-stack
+    qa: qa-wopr-serverless-stack
+    preprod: preprod-wopr-serverless-stack
+    prod: prod-wopr-serverless-stack
+    production: wopr-serverless-stack
+  customStack:
+    stackName: ${self:custom.stackNames.${opt:stage}}
+
+  
+
+# The `provider` block defines where your service will be deployed 
+provider:
+  name: aws
+  #See the "custom" section for an explanation on this. The old dev/qa version here V and the original prod version here V have been left just in case.
+  stackName: ${self:custom.customStack.stackName} #${opt:stage, self:custom.default_stage}-wopr-serverless-stack #wopr-serverless-stack
+  runtime: nodejs8.10
+  memorySize: ${file(config/config.${opt:stage, self:custom.default_stage}.json):MEMORY_SIZE}
+  region: us-west-2
+  environment:
+    REGION: ${self:provider.region}
+
+    #DyanmoDB Tables
+    DYNAMODB_ORDERS_TABLE_NAME: ${file(config/config.${opt:stage, self:custom.default_stage}.json):DYNAMODB_ORDERS_TABLE_NAME}
+    DYNAMODB_APPOINTMENTS_TABLE_NAME: ${file(config/config.${opt:stage, self:custom.default_stage}.json):DYNAMODB_APPOINTMENTS_TABLE_NAME}
+    DYNAMODB_TURKS_TABLE_NAME: ${file(config/config.${opt:stage, self:custom.default_stage}.json):DYNAMODB_TURKS_TABLE_NAME}
+    DYNAMODB_APPOINTMENTS_TO_EMAIL_TABLE_NAME: ${file(config/config.${opt:stage, self:custom.default_stage}.json):DYNAMODB_APPOINTMENTS_TO_EMAIL_TABLE_NAME}
+
+    #Daily Email Environment Configuration
+    DAILY_EMAIL_SUMMARY_URL_PREFIX: ${file(config/config.${opt:stage, self:custom.default_stage}.json):DAILY_EMAIL_SUMMARY_URL_PREFIX}
+    DAILY_EMAIL_TOMORROW_LOOKUP_OVERRIDE: ${file(config/config.${opt:stage, self:custom.default_stage}.json):DAILY_EMAIL_TOMORROW_LOOKUP_OVERRIDE}
+    DAILY_EMAIL_EMAIL_FROM_ADDRESS: ${file(config/config.${opt:stage, self:custom.default_stage}.json):DAILY_EMAIL_EMAIL_FROM_ADDRESS}
+    DAILY_EMAIL_STATIC_TO_ADDRESSES: ${file(config/config.${opt:stage, self:custom.default_stage}.json):DAILY_EMAIL_STATIC_TO_ADDRESSES}
+    DAILY_EMAIL_SEND_REAL_EMAIL: ${file(config/config.${opt:stage, self:custom.default_stage}.json):DAILY_EMAIL_SEND_REAL_EMAIL}
+
+    #SQS
+    SQS_WOPR_CF_ONLINE_ORDERS_INBOUND: ${file(config/config.${opt:stage, self:custom.default_stage}.json):SQS_WOPR_CF_ONLINE_ORDERS_INBOUND}
+    SQS_WOPR_CF_ONLINE_APPOINTMENTS_INBOUND: ${file(config/config.${opt:stage, self:custom.default_stage}.json):SQS_WOPR_CF_ONLINE_APPOINTMENTS_INBOUND}
+    SQS_WOPR_CF_ONLINE_ORDERS_ERROR: ${file(config/config.${opt:stage, self:custom.default_stage}.json):SQS_WOPR_CF_ONLINE_ORDERS_ERROR}
+    SQS_WOPR_CF_ONLINE_APPOINTMENTS_ERROR: ${file(config/config.${opt:stage, self:custom.default_stage}.json):SQS_WOPR_CF_ONLINE_APPOINTMENTS_ERROR}
+    SQS_WOPR_CF_ONLINE_APPOINTMENTS_24_HOUR_REMINDER_EMAIL_OUT: ${file(config/config.${opt:stage, self:custom.default_stage}.json):SQS_WOPR_CF_ONLINE_APPOINTMENTS_24_HOUR_REMINDER_EMAIL_OUT}
+    SQS_WOPR_CF_ONLINE_APPOINTMENTS_STATUS_EMAIL_OUT: ${file(config/config.${opt:stage, self:custom.default_stage}.json):SQS_WOPR_CF_ONLINE_APPOINTMENTS_STATUS_EMAIL_OUT}
+
+    #Lambda Arns
+    LAMBDA_WOPR_APPOINTMENTS_SEND_REMINDER_EMAIL_ARN: ${file(config/config.${opt:stage, self:custom.default_stage}.json):LAMBDA_WOPR_APPOINTMENTS_SEND_REMINDER_EMAIL_ARN}
+
+    #Lambda
+    LAMBDA_WOPR_TURKS_GET_STORES : ${file(config/config.${opt:stage, self:custom.default_stage}.json):LAMBDA_WOPR_TURKS_GET_STORES}
+    LAMBDA_WOPR_ONLINE_ORDERS_INBOUND : ${file(config/config.${opt:stage, self:custom.default_stage}.json):LAMBDA_WOPR_ONLINE_ORDERS_INBOUND}
+    LAMBDA_WOPR_ONLINE_ORDERS_GET : ${file(config/config.${opt:stage, self:custom.default_stage}.json):LAMBDA_WOPR_ONLINE_ORDERS_GET}
+    LAMBDA_WOPR_ONLINE_ORDERS_DELETE : ${file(config/config.${opt:stage, self:custom.default_stage}.json):LAMBDA_WOPR_ONLINE_ORDERS_DELETE}
+    LAMBDA_WOPR_ONLINE_APOINTMENTS_INBOUND : ${file(config/config.${opt:stage, self:custom.default_stage}.json):LAMBDA_WOPR_ONLINE_APOINTMENTS_INBOUND}
+    LAMBDA_WOPR_APPOINTMENTS_SEND_REMINDER_EMAIL : ${file(config/config.${opt:stage, self:custom.default_stage}.json):LAMBDA_WOPR_APPOINTMENTS_SEND_REMINDER_EMAIL}
+    LAMBDA_WOPR_SLA_ALERT : ${file(config/config.${opt:stage, self:custom.default_stage}.json):LAMBDA_WOPR_SLA_ALERT}
+    LAMBDA_WOPR_SEND_DAILY_EMAILS : ${file(config/config.${opt:stage, self:custom.default_stage}.json):LAMBDA_WOPR_SEND_DAILY_EMAILS}
+    LAMBDA_WOPR_APPOINTMENTS_PLUS_UPDATE_ORDER_ID : ${file(config/config.${opt:stage, self:custom.default_stage}.json):LAMBDA_WOPR_APPOINTMENTS_PLUS_UPDATE_ORDER_ID}
+
+    #SNS_ARNs
+    SNS_WOPR_ORDERS_IN_ARN : ${file(config/config.${opt:stage, self:custom.default_stage}.json):SNS_WOPR_ORDERS_IN_ARN}
+    SNS_WOPR_APPOINTMENTS_IN_ARN : ${file(config/config.${opt:stage, self:custom.default_stage}.json):SNS_WOPR_APPOINTMENTS_IN_ARN}
+    SNS_WOPR_APPOINTMENT_REMINDERS_ARN: ${file(config/config.${opt:stage, self:custom.default_stage}.json):SNS_WOPR_APPOINTMENT_REMINDERS_ARN}
+    SNS_WOPR_APPOINTMENT_STATUS_ARN: ${file(config/config.${opt:stage, self:custom.default_stage}.json):SNS_WOPR_APPOINTMENT_STATUS_ARN}
+
+    #SNS
+    SNS_WOPR_APPOINTMENT_REMINDERS: ${file(config/config.${opt:stage, self:custom.default_stage}.json):SNS_WOPR_APPOINTMENT_REMINDERS}
+    SNS_WOPR_APPOINTMENT_STATUS: ${file(config/config.${opt:stage, self:custom.default_stage}.json):SNS_WOPR_APPOINTMENT_STATUS}
+
+    #VPC
+    VPC_SECURITY_GROUP_ID: ${file(config/config.${opt:stage, self:custom.default_stage}.json):VPC_SECURITY_GROUP_ID}
+    VPC_SECURITY_GROUP_ID_DEFAULT: ${file(config/config.${opt:stage, self:custom.default_stage}.json):VPC_SECURITY_GROUP_ID_DEFAULT}
+    VPC_SUBNET_ID_1: ${file(config/config.${opt:stage, self:custom.default_stage}.json):VPC_SUBNET_ID_1}
+    VPC_SUBNET_ID_2: ${file(config/config.${opt:stage, self:custom.default_stage}.json):VPC_SUBNET_ID_2}
+    VPC_SUBNET_ID_3: ${file(config/config.${opt:stage, self:custom.default_stage}.json):VPC_SUBNET_ID_3}
+
+    #Paramater Store
+    SECRET_MANAGER_APTPLUS_CREDS_NAME: ${file(config/config.${opt:stage, self:custom.default_stage}.json):SECRET_MANAGER_APTPLUS_CREDS_NAME}
+    
+    #MISC
+    BOOMI_HOST : ${file(config/config.${opt:stage, self:custom.default_stage}.json):BOOMI_HOST}
+    IS_OFFLINE: ${file(config/config.${opt:stage, self:custom.default_stage}.json):IS_OFFLINE}
+    ACCOUNT: ${file(config/config.${opt:stage, self:custom.default_stage}.json):ACCOUNT}
+    
+
+  iamRoleStatements:
+      - Effect: Allow
+        Action:
+          - dynamodb:Query
+          - dynamodb:Scan
+          - dynamodb:GetItem
+          - dynamodb:PutItem
+          - dynamodb:UpdateItem
+          - dynamodb:DeleteItem
+        Resource: "arn:aws:dynamodb:${opt:region, self:provider.region}:*:table/${self:provider.environment.DYNAMODB_ORDERS_TABLE_NAME}"
+
+      - Effect: Allow
+        Action:
+          - dynamodb:Query
+          - dynamodb:Scan
+          - dynamodb:GetItem
+          - dynamodb:PutItem
+          - dynamodb:UpdateItem
+          - dynamodb:DeleteItem
+        Resource: "arn:aws:dynamodb:${opt:region, self:provider.region}:*:table/${self:provider.environment.DYNAMODB_APPOINTMENTS_TABLE_NAME}"
+
+      - Effect: Allow
+        Action:
+          - dynamodb:Query
+          - dynamodb:Scan
+          - dynamodb:GetItem
+          - dynamodb:PutItem
+          - dynamodb:UpdateItem
+          - dynamodb:DeleteItem
+        Resource: "arn:aws:dynamodb:${opt:region, self:provider.region}:*:table/${self:provider.environment.DYNAMODB_TURKS_TABLE_NAME}"
+
+      - Effect: Allow
+        Action:
+          - dynamodb:Query
+          - dynamodb:Scan
+          - dynamodb:GetItem
+          - dynamodb:PutItem
+          - dynamodb:UpdateItem
+          - dynamodb:DeleteItem
+        Resource: "arn:aws:dynamodb:${opt:region, self:provider.region}:*:table/${self:provider.environment.DYNAMODB_APPOINTMENTS_TO_EMAIL_TABLE_NAME}"
+
+      - Effect: Allow
+        Action:
+          - ses:SendEmail
+          - ses:SendRawEmail
+        Resource: "*"
+
+      - Effect: Allow
+        Action:
+          - sns:Publish
+        Resource: "*"
+
+      - Effect: Allow
+        Action:
+          - ssm:GetParameter
+        Resource: "arn:aws:ssm:${opt:region, self:provider.region}:*:parameter/${self:provider.environment.SECRET_MANAGER_APTPLUS_CREDS_NAME}"
+
+      - Effect: Allow
+        Action:
+          - kms:Decrypt
+        Resource: "arn:aws:ssm:${opt:region, self:provider.region}:*:key/73019c63-d0d1-4f81-81a6-47bf0be4184a"
+
+functions:
+  woprAppointmentsPlusUpdateOrderID:
+    name: ${self:provider.environment.LAMBDA_WOPR_APPOINTMENTS_PLUS_UPDATE_ORDER_ID}
+    handler: functions/woprAppointmentsPlusUpdateOrderID.handler
+    vpc:
+      securityGroupIds:
+        - ${self:provider.environment.VPC_SECURITY_GROUP_ID_DEFAULT}
+      subnetIds:
+        - ${self:provider.environment.VPC_SUBNET_ID_1}
+        - ${self:provider.environment.VPC_SUBNET_ID_2}
+    environment:
+      APTPLUS_URL: "https://ws.appointment-plus.com"
+      APTPLUS_METHOD: "POST"
+      APTPLUS_PATH: "/Appointments/UpdateAppointments"
+      APPTS_PLUS_WO_STATUS_ID: 71
+    tags:
+      Author: Mike Haas
+
+  woprOnlineOrdersGet:
+    name: ${self:provider.environment.LAMBDA_WOPR_ONLINE_ORDERS_GET}
+    handler: functions/woprOnlineOrdersGet.handler
+    events:
+      - http:
+          path: woprdata/get
+          method: POST
+          cors: true
+    environment:
+      APPOINTMENT_TABLENAME: ${self:provider.environment.DYNAMODB_APPOINTMENTS_TABLE_NAME}
+      ORDER_TABLENAME: ${self:provider.environment.DYNAMODB_ORDERS_TABLE_NAME}
+      TURK_TABLENAME: ${self:provider.environment.DYNAMODB_TURKS_TABLE_NAME}
+
+  woprOnlineOrdersInbound:
+    name : ${self:provider.environment.LAMBDA_WOPR_ONLINE_ORDERS_INBOUND}
+    handler: functions/woprOnlineOrdersInbound.handler
+    events:
+        - sns:
+            arn: ${self:provider.environment.SNS_WOPR_ORDERS_IN_ARN}
+    environment:
+      APPOINTMENT_TO_EMAIL_TABLENAME: ${self:provider.environment.DYNAMODB_APPOINTMENTS_TO_EMAIL_TABLE_NAME}
+      AUTO_ZIP: "11111"
+      BOOMI_HOST: ${self:provider.environment.BOOMI_HOST}
+      BOOMI_METHOD: "PUT"
+      BOOMI_PATH: "/ws/rest/woprdata/WOPRData/update"
+      BOOMI_PORT: "9090"
+      BOOMI_PROTOCOL: "http"
+      EMAIL_TURKS: "Y"
+      NOTIFICATION_EMAIL: "maliciouscarrot@gmail.com"
+      ORDER_TABLENAME: ${self:provider.environment.DYNAMODB_ORDERS_TABLE_NAME}
+      ORDER_TO_CF_FUNCTION_NAME: "wopr-online-orders-inbound-to-CF"
+      REGION: "us-west-2"
+      SEND_TO_CF: "N"
+      TURK_TABLENAME: ${self:provider.environment.DYNAMODB_TURKS_TABLE_NAME}
+      ENABLE_MARKETING_CLOUD_NOTIFICATIONS: "N"
+    vpc:
+      securityGroupIds:
+        - ${self:provider.environment.VPC_SECURITY_GROUP_ID}
+      subnetIds:
+        - ${self:provider.environment.VPC_SUBNET_ID_1}
+        - ${self:provider.environment.VPC_SUBNET_ID_2}
+
+  woprOnlineAppointmentsInbound:
+    name: ${self:provider.environment.LAMBDA_WOPR_ONLINE_APOINTMENTS_INBOUND}
+    handler: functions/woprOnlineAppointmentsInbound.handler
+    events:
+        - sns:
+            arn: ${self:provider.environment.SNS_WOPR_APPOINTMENTS_IN_ARN}
+    environment:
+      APPOINTMENT_TO_EMAIL_TABLENAME: ${self:provider.environment.DYNAMODB_APPOINTMENTS_TO_EMAIL_TABLE_NAME}
+      BOOMI_ENDPOINT: ${self:provider.environment.BOOMI_HOST}
+      BOOMI_METHOD: "PUT"
+      BOOMI_PATH: "/ws/rest/woprdata/WOPRData/updateAppts"
+      BOOMI_PORT: "9090"
+      BOOMI_PROTOCOL: "http"
+      REGION: "us-west-2"
+      SNS_WOPR_APPOINTMENT_STATUS_ARN: ${self:provider.environment.SNS_WOPR_APPOINTMENT_STATUS_ARN}
+      ENABLE_MARKETING_CLOUD_NOTIFICATIONS: "N"
+    vpc:
+      securityGroupIds:
+        - ${self:provider.environment.VPC_SECURITY_GROUP_ID}
+      subnetIds:
+        - ${self:provider.environment.VPC_SUBNET_ID_1}
+        - ${self:provider.environment.VPC_SUBNET_ID_2}
+        
+  woprOnlineOrdersDelete:
+    name: ${self:provider.environment.LAMBDA_WOPR_ONLINE_ORDERS_DELETE}
+    handler: functions/woprOnlineOrdersDelete.handler
+    events:
+      - http:
+          path: woprdata/delete/{ccdid}/{site}
+          method: POST
+          integration: lambda
+          cors: true
+          request: 
+            parameters:
+              paths:
+                ccdid: true
+                site: true
+    environment:
+      APPOINTMENT_TABLENAME: ${self:provider.environment.DYNAMODB_APPOINTMENTS_TABLE_NAME}
+      ORDER_TABLENAME: ${self:provider.environment.DYNAMODB_ORDERS_TABLE_NAME}
+
+  woprTurksGetStores:
+    name: ${self:provider.environment.LAMBDA_WOPR_TURKS_GET_STORES}
+    handler: functions/woprTurksGetStores.handler
+    events:
+      - http:
+          path: woprturk/getstores
+          method: POST
+          cors: true
+    environment:
+      TURK_TABLENAME: ${self:provider.environment.DYNAMODB_TURKS_TABLE_NAME}
+
+  woprSLAAlert:
+    name: ${self:provider.environment.LAMBDA_WOPR_SLA_ALERT}
+    handler: functions/woprSLAAlert.handler
+    events:
+      - schedule: cron(* 15-0 ? * MON-FRI *)
+    environment:
+      APPOINTMENT_TABLENAME: ${self:provider.environment.DYNAMODB_APPOINTMENTS_TABLE_NAME}
+      DEBUG_EMAIL: "alex.koutsopoulos@gmail.com"
+      IMAGE_SOURCE: "https://s3-us-west-2.amazonaws.com/ls-dev-images/LS-logo-small.png"
+      ORDER_TABLENAME: ${self:provider.environment.DYNAMODB_ORDERS_TABLE_NAME}
+      SLA_MINUTES_AMOUNT: "15"
+      REGION: "us-west-2"
+      SOURCE_EMAIL: "confirmation@lesschwab.com"
+      TURK_EMAIL_LIST: "[\"alex.koutsopoulos@lesschwab.com\"]"
+
+  woprAppointmentsSendReminderEmail:
+    name: ${self:provider.environment.LAMBDA_WOPR_APPOINTMENTS_SEND_REMINDER_EMAIL}
+    handler: functions/woprAppointmentsSendReminderEmail.handler
+    events:
+      - schedule: rate(5 minutes)                            # Disabling this since we're doing Marketing Cloud Notifications from callouts directly
+        enabled: false
+    environment:
+      APPOINTMENT_TABLENAME: ${self:provider.environment.DYNAMODB_APPOINTMENTS_TABLE_NAME}
+      ORDER_TABLENAME: ${self:provider.environment.DYNAMODB_ORDERS_TABLE_NAME}
+      IMAGE_SOURCE: "https://s3-us-west-2.amazonaws.com/ls-dev-images/LS-logo-small.png"
+      REGION: "us-west-2"
+      SOURCE_EMAIL: "confirmation@lesschwab.com"
+      RUN_FREQUENCY_MINUTES: "5"
+      SNS_WOPR_APPOINTMENT_REMINDERS_ARN: ${self:provider.environment.SNS_WOPR_APPOINTMENT_REMINDERS_ARN}
+      TWENTYFOUR_HOUR_APPOINTMENT_REMINDER_TO_MARKETING_CLOUD: "N"
+      TWENTYFOUR_HOUR_APPOINTMENT_REMINDER_TO_SES: "Y"
+
+  woprSendDailyEmails:
+    name: ${self:provider.environment.LAMBDA_WOPR_SEND_DAILY_EMAILS}
+    handler: functions/woprSendDailyEmails.handler
+    timeout: 120
+    events:
+       - schedule: cron(0 23 * * ? *)
+    environment:
+      DAILY_EMAIL_SUMMARY_URL_PREFIX: ${self:provider.environment.DAILY_EMAIL_SUMMARY_URL_PREFIX}
+      DAILY_EMAIL_TOMORROW_LOOKUP_OVERRIDE: ${self:provider.environment.DAILY_EMAIL_TOMORROW_LOOKUP_OVERRIDE}
+      DAILY_EMAIL_EMAIL_FROM_ADDRESS: ${self:provider.environment.DAILY_EMAIL_EMAIL_FROM_ADDRESS}
+      DAILY_EMAIL_STATIC_TO_ADDRESSES: ${self:provider.environment.DAILY_EMAIL_STATIC_TO_ADDRESSES}
+      DAILY_EMAIL_SEND_REAL_EMAIL: ${self:provider.environment.DAILY_EMAIL_SEND_REAL_EMAIL}
+
+resources:
+  Conditions:
+    IsLocal:
+      Fn::Equals:
+        - ${opt:stage, self:custom.default_stage}
+        - local  
+    IsDev:
+      Fn::Equals:
+        - ${opt:stage, self:custom.default_stage}
+        - development 
+    IsQA:
+      Fn::Equals:
+        - ${opt:stage, self:custom.default_stage}
+        - qa  
+    IsProd:
+      Fn::Equals:
+        - ${opt:stage, self:custom.default_stage}
+        - production  
+    NotDev:
+      Fn::Or: 
+        - Condition: IsLocal
+        - Condition: IsQA
+        - Condition: IsProd
+
+  Resources:
+    tablewoprappointments:
+      Type: 'AWS::DynamoDB::Table'
+      Properties:
+        TableName: ${self:provider.environment.DYNAMODB_APPOINTMENTS_TABLE_NAME}
+        AttributeDefinitions:
+          - AttributeName: CCDID_Status
+            AttributeType: S
+          - AttributeName: siteNumber
+            AttributeType: 'N'
+        KeySchema:
+          - AttributeName: siteNumber
+            KeyType: HASH
+          - AttributeName: CCDID_Status
+            KeyType: RANGE
+        BillingMode: PAY_PER_REQUEST
+
+    tablewoprappointmentstoemail:
+      Type: 'AWS::DynamoDB::Table'
+      Properties:
+        TableName: ${self:provider.environment.DYNAMODB_APPOINTMENTS_TO_EMAIL_TABLE_NAME}
+        AttributeDefinitions:
+          - AttributeName: CCDID
+            AttributeType: S
+          - AttributeName: siteNumber
+            AttributeType: 'N'
+        KeySchema:
+          - AttributeName: siteNumber
+            KeyType: HASH
+          - AttributeName: CCDID
+            KeyType: RANGE
+        BillingMode: PAY_PER_REQUEST
+
+    tablewoprorders:
+      Type: 'AWS::DynamoDB::Table'
+      Properties:
+        TableName: ${self:provider.environment.DYNAMODB_ORDERS_TABLE_NAME}
+        AttributeDefinitions:
+          - AttributeName: CCDID_Status
+            AttributeType: S
+          - AttributeName: siteNumber
+            AttributeType: 'N'
+        KeySchema:
+          - AttributeName: siteNumber
+            KeyType: HASH
+          - AttributeName: CCDID_Status
+            KeyType: RANGE
+        BillingMode: PAY_PER_REQUEST
+
+    tablewoprturks:
+      Type: 'AWS::DynamoDB::Table'
+      Properties:
+        TableName: ${self:provider.environment.DYNAMODB_TURKS_TABLE_NAME}
+        AttributeDefinitions:
+          - AttributeName: turken
+            AttributeType: S
+        KeySchema:
+          - AttributeName: turken
+            KeyType: HASH
+        BillingMode: PAY_PER_REQUEST
+
+    queuewoprcfonlineappointmentsinbound:
+      Type: 'AWS::SQS::Queue'
+      Properties:
+        QueueName: ${self:provider.environment.SQS_WOPR_CF_ONLINE_APPOINTMENTS_INBOUND}
+        DelaySeconds: '0'
+        MaximumMessageSize: '262144'
+        MessageRetentionPeriod: '345600'
+        ReceiveMessageWaitTimeSeconds: '0'
+        VisibilityTimeout: '30'
+
+    queuewoprcfonlineordersinbound:
+      Type: 'AWS::SQS::Queue'
+      Properties:
+        QueueName: ${self:provider.environment.SQS_WOPR_CF_ONLINE_ORDERS_INBOUND}
+        DelaySeconds: '0'
+        MaximumMessageSize: '262144'
+        MessageRetentionPeriod: '345600'
+        ReceiveMessageWaitTimeSeconds: '0'
+        VisibilityTimeout: '30'
+
+    queuewoprcfonlineorderserror:
+      Type: 'AWS::SQS::Queue'
+      Properties:
+        QueueName: ${self:provider.environment.SQS_WOPR_CF_ONLINE_ORDERS_ERROR}
+        DelaySeconds: '0'
+        MaximumMessageSize: '262144'
+        MessageRetentionPeriod: '345600'
+        ReceiveMessageWaitTimeSeconds: '0'
+        VisibilityTimeout: '30'
+
+    queuewoprcfonlineappointmentserror:
+      Type: 'AWS::SQS::Queue'
+      Properties:
+        QueueName: ${self:provider.environment.SQS_WOPR_CF_ONLINE_APPOINTMENTS_ERROR}
+        DelaySeconds: '0'
+        MaximumMessageSize: '262144'
+        MessageRetentionPeriod: '345600'
+        ReceiveMessageWaitTimeSeconds: '0'
+        VisibilityTimeout: '30'
+
+    queuewoprcfonlineappointments24houremailout:
+      Type: 'AWS::SQS::Queue'
+      Properties:
+        QueueName: ${self:provider.environment.SQS_WOPR_CF_ONLINE_APPOINTMENTS_24_HOUR_REMINDER_EMAIL_OUT}
+        DelaySeconds: '0'
+        MaximumMessageSize: '262144'
+        MessageRetentionPeriod: '1209600'
+        ReceiveMessageWaitTimeSeconds: '0'
+        VisibilityTimeout: '30'
+
+    queuewoprcfonlineappointmentsstatusemailout:
+      Type: 'AWS::SQS::Queue'
+      Properties:
+        QueueName: ${self:provider.environment.SQS_WOPR_CF_ONLINE_APPOINTMENTS_STATUS_EMAIL_OUT}
+        DelaySeconds: '0'
+        MaximumMessageSize: '262144'
+        MessageRetentionPeriod: '1209600'
+        ReceiveMessageWaitTimeSeconds: '0'
+        VisibilityTimeout: '30'
+
+    subscriptionWOPROrderQueueToSNS:
+      Type: AWS::SNS::Subscription
+      Properties:
+        Endpoint: 
+          Fn::GetAtt:
+            - queuewoprcfonlineordersinbound
+            - "Arn"
+        Protocol: sqs
+        TopicArn: ${self:provider.environment.SNS_WOPR_ORDERS_IN_ARN}
+
+    subscriptionWOPRAppointmentQueueToSNS:
+      Type: AWS::SNS::Subscription
+      Properties:
+        Endpoint: 
+          Fn::GetAtt:
+            - queuewoprcfonlineappointmentsinbound
+            - "Arn"
+        Protocol: sqs
+        TopicArn: ${self:provider.environment.SNS_WOPR_APPOINTMENTS_IN_ARN}
+        
+    subscriptionWOPR24HourAppointmentOutToSNS:
+      Type: AWS::SNS::Subscription
+      Properties:
+        Endpoint: 
+          Fn::GetAtt:
+            - queuewoprcfonlineappointments24houremailout
+            - "Arn"
+        Protocol: sqs
+        TopicArn: ${self:provider.environment.SNS_WOPR_APPOINTMENT_REMINDERS_ARN}
+
+    subscriptionWOPRStatusEmailOutToSNS:
+      Type: AWS::SNS::Subscription
+      Properties:
+        Endpoint: 
+          Fn::GetAtt:
+            - queuewoprcfonlineappointmentsstatusemailout
+            - "Arn"
+        Protocol: sqs
+        TopicArn: ${self:provider.environment.SNS_WOPR_APPOINTMENT_STATUS_ARN}
+
+    appointmentStatusTopic:                                     # This will go up with Traction Appointment Status stuff
+      Type: AWS::SNS::Topic
+      Properties:
+        TopicName: ${self:provider.environment.SNS_WOPR_APPOINTMENT_STATUS}
+
+    appointmentReminderTopic:                                  # This will go up with the Traction 24 hour appointment stuff
+      Type: AWS::SNS::Topic
+      Properties:
+          TopicName: ${self:provider.environment.SNS_WOPR_APPOINTMENT_REMINDERS}
+    
+    # MyQueuePolicy:
+    #   Type: "AWS::SQS::QueuePolicy"
+    #   Properties:        
+    #     PolicyDocument: 
+    #       {"Version": "2012-10-17","Id": "WOPRQueuePolicy","Statement" : [{"Sid": "1", "Effect": "Allow", "Principal": "*","Action": ["sqs:ReceiveMessage"], "Resource": "*"  }]}
+    #     Queues: 
+    #       - Fn::GetAtt:
+    #         - queuewoprcfonlineappointments24houremailout
+    #         - "Arn"
+    #       - Fn::GetAtt:
+    #         - queuewoprcfonlineappointmentsstatusemailout
+    #         - "Arn"
+    #       - Fn::GetAtt:
+    #         - queuewoprcfonlineappointmentsinbound
+    #         - "Arn"
+    #       - Fn::GetAtt:
+    #         - queuewoprcfonlineordersinbound
+    #         - "Arn"

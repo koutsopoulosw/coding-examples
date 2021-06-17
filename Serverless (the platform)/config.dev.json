@@ -1,0 +1,55 @@
+{
+    "MEMORY_SIZE": "512",
+
+    "IS_OFFLINE": "false",
+    
+    "DYNAMODB_ORDERS_TABLE_NAME": "dev-wopr-orders",
+    "DYNAMODB_APPOINTMENTS_TABLE_NAME":"dev-wopr-appointments",
+    "DYNAMODB_TURKS_TABLE_NAME":"dev-wopr-turks",
+    "DYNAMODB_APPOINTMENTS_TO_EMAIL_TABLE_NAME": "dev-wopr-appointments-to-email",
+
+    "DAILY_EMAIL_SUMMARY_URL_PREFIX": "REDACTED",
+    "DAILY_EMAIL_TOMORROW_LOOKUP_OVERRIDE": "",
+    "DAILY_EMAIL_EMAIL_FROM_ADDRESS": "REDACTED",
+    "DAILY_EMAIL_STATIC_TO_ADDRESSES": "REDACTED",
+    "DAILY_EMAIL_SEND_REAL_EMAIL": "No",
+    
+    "SQS_WOPR_CF_ONLINE_ORDERS_INBOUND": "dev-wopr-cf-online-orders-inbound",
+    "SQS_WOPR_CF_ONLINE_APPOINTMENTS_INBOUND": "dev-wopr-cf-online-appointments-inbound", 
+    "SQS_WOPR_CF_ONLINE_ORDERS_ERROR":  "dev-wopr-cf-online-orders-error",
+    "SQS_WOPR_CF_ONLINE_APPOINTMENTS_ERROR": "dev-wopr-cf-online-appointments-error",
+    "SQS_WOPR_CF_ONLINE_APPOINTMENTS_24_HOUR_REMINDER_EMAIL_OUT":"dev-wopr-cf-online-appointments-24-hour-reminder-out",
+    "SQS_WOPR_CF_ONLINE_APPOINTMENTS_STATUS_EMAIL_OUT":"dev-wopr-cf-online-appointments-status-email-out", 
+
+    "LAMBDA_WOPR_TURKS_GET_STORES":"dev-wopr-turks-get-stores", 
+    "LAMBDA_WOPR_ONLINE_ORDERS_INBOUND" : "dev-wopr-online-orders-inbound",
+    "LAMBDA_WOPR_ONLINE_ORDERS_GET" : "dev-wopr-online-orders-get", 
+    "LAMBDA_WOPR_ONLINE_ORDERS_DELETE" : "dev-wopr-online-orders-delete", 
+    "LAMBDA_WOPR_ONLINE_APOINTMENTS_INBOUND" : "dev-wopr-online-appointments-inbound", 
+    "LAMBDA_WOPR_APPOINTMENTS_SEND_REMINDER_EMAIL" : "dev-wopr-appointments-send-reminder-email",
+    "LAMBDA_WOPR_SLA_ALERT" : "dev-wopr-sla-alert",
+    "LAMBDA_WOPR_SEND_DAILY_EMAILS" : "dev-wopr-send-daily-emails",
+    "LAMBDA_WOPR_APPOINTMENTS_PLUS_UPDATE_ORDER_ID" : "dev-wopr-appointments-plus-update-order-id",
+
+    "LAMBDA_WOPR_APPOINTMENTS_SEND_REMINDER_EMAIL_ARN":"REDACTED",
+
+    "SNS_WOPR_ORDERS_IN_ARN" : "REDACTED", 
+    "SNS_WOPR_APPOINTMENTS_IN_ARN" : "REDACTED",
+
+    "SNS_WOPR_APPOINTMENT_REMINDERS_ARN" : "REDACTED",
+    "SNS_WOPR_APPOINTMENT_REMINDERS":"dev-wopr-appointment-reminders",
+
+    "SNS_WOPR_APPOINTMENT_STATUS":"dev-wopr-appointment-status-email",
+    "SNS_WOPR_APPOINTMENT_STATUS_ARN":"REDACTED",
+
+    "ACCOUNT" : "REDACTED",
+
+    "VPC_SECURITY_GROUP_ID":"REDACTED",
+    "VPC_SECURITY_GROUP_ID_DEFAULT":"REDACTED",
+    "VPC_SUBNET_ID_1": "REDACTED",
+    "VPC_SUBNET_ID_2": "REDACTED",
+    "VPC_SUBNET_ID_3": "",
+
+    "BOOMI_HOST" : "REDACTED",
+    "SECRET_MANAGER_APTPLUS_CREDS_NAME": "REDACTED"
+}
